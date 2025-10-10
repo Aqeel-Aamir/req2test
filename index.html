@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Req2Test - Automated Test Case Generator</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Inter font -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f4f7f9;
+        }
+        /* Custom Keyframes for a sleek progress indicator */
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 0.3; transform: scale(0.8); }
+            50% { opacity: 1; transform: scale(1); }
+        }
+        .dot {
+            animation: pulse-dot 1.2s infinite ease-in-out;
+        }
+        .dot-2 { animation-delay: 0.3s; }
+        .dot-3 { animation-delay: 0.6s; }
+        .whitespace-pre-wrap {
+            white-space: pre-wrap;
+        }
+    </style>
+    <!-- Load required libraries for client-side PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+    <!-- Load Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
+</head>
+<body class="min-h-screen flex flex-col items-center p-4">
+
+    <!-- Main Container -->
+    <div class="w-full max-w-4xl space-y-8 mt-10">
+
+        <!-- Header -->
+        <header class="text-center">
+            <h1 class="text-5xl font-extrabold text-gray-800 mb-2">Req2Test</h1>
+            <p class="text-xl text-gray-500">Automated Test Case Generation via Gemini AI</p>
+        </header>
+
+        <!-- Main Card Layout -->
+        <div class="bg-white p-6 md:p-10 rounded-xl shadow-2xl border border-gray-100 space-y-6">
+            
+            <h2 class="text-2xl font-bold text-gray-800 flex items-center mb-4">
+                <i class="ph ph-note-pencil mr-2 text-indigo-600"></i>
+                Input Requirements
+            </h2>
+
+            <!-- Text Area Input for Requirements -->
+            <div id="input-card" class="bg-indigo-50 border border-indigo-200 rounded-lg p-4 transition duration-300">
+                <textarea id="requirements-text"
+                          rows="10"
+                          class="w-full p-3 text-gray-700 bg-white border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition duration-150 resize-none"
+                          placeholder="Paste your software requirement specification (SRS) or user story here. For example: 'The system must allow a user to reset their password using their registered email address. The new password must be between 8 and 20 characters and contain at least one uppercase letter and one number.'"></textarea>
+                <p class="text-sm text-gray-500 mt-2">The AI will analyze this text to generate comprehensive test cases.</p>
+            </div>
+
+            <!-- Action Button -->
+            <button id="generate-button"
+                class="w-full flex items-center justify-center space-x-2 px-6 py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition duration-300 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed">
+                <i class="ph ph-cpu text-xl"></i>
+                <span id="button-text">Generate Test Cases</span>
+                <div id="loading-indicator" class="hidden flex space-x-1">
+                    <div class="dot w-2 h-2 bg-white rounded-full"></div>
+                    <div class="dot dot-2 w-2 h-2 bg-white rounded-full"></div>
+                    <div class="dot dot-3 w-2 h-2 bg-white rounded-full"></div>
+                </div>
+            </button>
+
+            <!-- Error Message Area -->
+            <div id="error-message" class="hidden p-4 bg-red-100 text-red-700 border border-red-300 rounded-lg font-medium"></div>
+
+        </div>
+
+        <!-- Results Section -->
+        <div id="results-card" class="hidden bg-white p-6 md:p-8 rounded-xl shadow-2xl border border-gray-100">
+            <h2 class="text-3xl font-bold text-gray-800 mb-6 flex items-center">
+                <i class="ph ph-list-checks mr-2 text-indigo-600"></i>Generated Test Cases
+            </h2>
+
+            <!-- Download Button -->
+            <div class="flex justify-end mb-6">
+                <button id="download-pdf"
+                    class="flex items-center justify-center space-x-2 px-4 py-2 bg-red-600 text-white font-medium text-sm rounded-lg hover:bg-red-700 transition duration-200 shadow-md">
+                    <i class="ph ph-file-pdf"></i>
+                    <span>Download PDF Report</span>
+                </button>
+            </div>
+
+            <!-- Test Case Table -->
+            <div class="overflow-x-auto rounded-lg border border-gray-200 shadow-inner">
+                <table class="min-w-full divide-y divide-gray-200" id="test-case-table">
+                    <thead class="bg-gray-100 sticky top-0">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-1/12">ID</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-4/12">Description</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-3/12">Input/Steps</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-3/12">Expected Output</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-1/12">Type</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200" id="test-case-body">
+                        <!-- Test cases will be inserted here by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <p id="extraction-warning" class="mt-6 text-sm text-yellow-700 bg-yellow-100 p-3 rounded-lg flex items-center hidden">
+                <i class="ph ph-warning-circle text-xl mr-2"></i>
+                The table contents were generated by the AI from your provided text. Please review all test cases for accuracy and completeness before use.
+            </p>
+
+        </div>
+
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed bottom-5 right-5 space-y-2 z-50"></div>
+
+    <script>
+        // --- Core Variables and State ---
+        const requirementsTextarea = document.getElementById('requirements-text');
+        const generateButton = document.getElementById('generate-button');
+        const buttonText = document.getElementById('button-text');
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const resultsCard = document.getElementById('results-card');
+        const errorMessage = document.getElementById('error-message');
+        const testCaseBody = document.getElementById('test-case-body');
+        const downloadPdfButton = document.getElementById('download-pdf');
+        
+        // Gemini API configuration
+        const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=";
+        const API_KEY = "AIzaSyDpu3RIg4AiKnoWm0VczwXilxKPO64lcmM"; // Canvas environment handles the key
+
+        let generatedTestCases = [];
+
+        // Define the JSON schema for structured output
+        const TEST_CASE_SCHEMA = {
+            type: "ARRAY",
+            items: {
+                type: "OBJECT",
+                properties: {
+                    "testId": { "type": "STRING", "description": "A unique identifier for the test case (e.g., TC-001)" },
+                    "testDescription": { "type": "STRING", "description": "A concise summary of the test's objective." },
+                    "input": { "type": "STRING", "description": "The steps or input data required to execute the test." },
+                    "expectedOutput": { "type": "STRING", "description": "The verifiable result expected after execution." },
+                    "testType": { "type": "STRING", "description": "The category of the test (e.g., Functional, Negative, Boundary, Security, Performance)" }
+                },
+                required: ["testId", "testDescription", "input", "expectedOutput", "testType"],
+                propertyOrdering: ["testId", "testDescription", "input", "expectedOutput", "testType"]
+            }
+        };
+
+        // --- Utility Functions ---
+
+        /**
+         * Shows a transient toast notification.
+         * @param {string} message - The message to display.
+         * @param {string} type - 'success', 'error', or 'info'.
+         */
+        function showToast(message, type = 'info') {
+            const toastContainer = document.getElementById('toast-container');
+            const colorMap = {
+                success: 'bg-green-600',
+                error: 'bg-red-600',
+                info: 'bg-blue-600'
+            };
+            const iconMap = {
+                success: 'ph-check-circle',
+                error: 'ph-x-circle',
+                info: 'ph-info'
+            };
+
+            const toast = document.createElement('div');
+            toast.className = `p-4 flex items-center space-x-3 text-white rounded-lg shadow-xl ${colorMap[type]} transition-opacity duration-300 w-64`;
+            toast.innerHTML = `<i class="ph ${iconMap[type]} text-2xl"></i><span>${message}</span>`;
+            
+            toastContainer.appendChild(toast);
+
+            setTimeout(() => {
+                // Start fade out
+                toast.style.opacity = '0'; 
+                // Remove element after fade out completes
+                setTimeout(() => toast.remove(), 300); 
+            }, 5000);
+        }
+
+        /**
+         * Renders the generated test cases into the results table.
+         * @param {Array<Object>} cases - Array of test case objects.
+         */
+        function renderTestCases(cases) {
+            testCaseBody.innerHTML = '';
+            if (!cases || cases.length === 0) {
+                testCaseBody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-gray-500 text-lg font-medium bg-gray-50">No test cases generated. Try rephrasing your requirements.</td></tr>';
+                return;
+            }
+
+            cases.forEach((tc, index) => {
+                const row = testCaseBody.insertRow();
+                row.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+                
+                // Ensure all fields are present to avoid runtime errors
+                const fields = ['testId', 'testDescription', 'input', 'expectedOutput', 'testType'];
+                fields.forEach((field) => {
+                    const cell = row.insertCell();
+                    cell.className = 'px-4 py-3 text-sm text-gray-800 align-top whitespace-pre-wrap';
+                    
+                    if (field === 'testType') {
+                        // Apply specific badge styling for Test Type
+                        let colorClass = 'text-gray-800 bg-gray-200';
+                        const type = (tc[field] || '').toLowerCase();
+                        if (type.includes('functional')) colorClass = 'text-green-800 bg-green-100';
+                        else if (type.includes('negative') || type.includes('boundary')) colorClass = 'text-red-800 bg-red-100';
+                        else if (type.includes('security')) colorClass = 'text-purple-800 bg-purple-100';
+                        else if (type.includes('performance')) colorClass = 'text-blue-800 bg-blue-100';
+                        
+                        cell.innerHTML = `<span class="inline-block px-2 py-0.5 text-xs font-medium rounded-full ${colorClass}">${tc[field] || 'Other'}</span>`;
+                    } else {
+                         // Convert null/undefined to '-'
+                        cell.textContent = tc[field] || '-'; 
+                    }
+                });
+            });
+            resultsCard.classList.remove('hidden');
+            document.getElementById('extraction-warning').classList.remove('hidden');
+        }
+
+        /**
+         * Generates a PDF report using jspdf and jspdf-autotable (client-side).
+         */
+        function generatePdfReport() {
+            if (generatedTestCases.length === 0) {
+                showToast("No test cases to download.", 'error');
+                return;
+            }
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('landscape'); // Use landscape for wider table
+            
+            const now = new Date().toLocaleString();
+
+            // Header
+            doc.setFontSize(22);
+            doc.text("Req2Test Generated Test Cases", 14, 20);
+            
+            doc.setFontSize(10);
+            doc.text(`Generation Timestamp: ${now}`, 14, 28);
+            
+            // Table Data
+            const headers = [
+                { title: "ID", dataKey: "testId" },
+                { title: "Description", dataKey: "testDescription" },
+                { title: "Input/Steps", dataKey: "input" },
+                { title: "Expected Output", dataKey: "expectedOutput" },
+                { title: "Type", dataKey: "testType" }
+            ];
+
+            doc.autoTable({
+                startY: 35,
+                head: [headers.map(h => h.title)],
+                body: generatedTestCases.map(tc => [
+                    tc.testId || '-', 
+                    tc.testDescription || '-', 
+                    tc.input || '-', 
+                    tc.expectedOutput || '-', 
+                    tc.testType || '-'
+                ]),
+                theme: 'striped',
+                headStyles: { fillColor: [51, 65, 85], fontStyle: 'bold' }, // Slate 700
+                styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak' },
+                columnStyles: {
+                    0: { cellWidth: 15 }, // ID
+                    1: { cellWidth: 60 }, // Description
+                    2: { cellWidth: 60 }, // Input
+                    3: { cellWidth: 60 }, // Expected Output
+                    4: { cellWidth: 25 }, // Type
+                }
+            });
+
+            doc.save(`Req2Test_Report_${new Date().toISOString().slice(0, 10)}.pdf`);
+            showToast("PDF report successfully generated!", 'success');
+        }
+
+        /**
+         * Core logic to call the Gemini API for test case generation.
+         * Uses structured output to guarantee JSON array format.
+         */
+        async function generateTestCasesFromRequirements(requirements) {
+            const systemPrompt = "You are an expert Software QA Engineer. Your task is to analyze the provided software requirements and generate a comprehensive set of test cases covering positive, negative, and boundary scenarios. Output the results ONLY as a JSON array of test case objects, strictly following the provided schema.";
+            const userQuery = `Generate test cases for the following software requirements: \n\n---REQUIREMENTS---\n${requirements}`;
+
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: TEST_CASE_SCHEMA
+                }
+            };
+
+            const maxRetries = 3;
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetch(API_URL + API_KEY, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        if (response.status === 429 && i < maxRetries - 1) {
+                            // Rate limit, retry with backoff
+                            const delay = Math.pow(2, i) * 1000 + (Math.random() * 500);
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                            continue; 
+                        }
+                        const errorData = await response.text();
+                        throw new Error(`API Request Failed (Status ${response.status}): ${errorData.substring(0, 100)}...`);
+                    }
+
+                    const result = await response.json();
+                    
+                    const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (!jsonText) {
+                        throw new Error("Received an empty or malformed response from the model.");
+                    }
+
+                    // Parse the JSON string from the response
+                    const parsedJson = JSON.parse(jsonText);
+                    
+                    if (!Array.isArray(parsedJson)) {
+                         throw new Error("Model response was not a JSON array of test cases.");
+                    }
+
+                    return parsedJson;
+
+                } catch (error) {
+                    if (i === maxRetries - 1) {
+                         // On the last retry, throw the error
+                        throw error;
+                    }
+                    // Continue to next retry
+                }
+            }
+            throw new Error("API request failed after all retries.");
+        }
+
+
+        // --- Event Handlers and Main Logic ---
+
+        // Enable/Disable button based on text area content
+        requirementsTextarea.addEventListener('input', () => {
+            generateButton.disabled = requirementsTextarea.value.trim().length < 50; // Require at least 50 chars of requirements
+        });
+
+        generateButton.addEventListener('click', async () => {
+            const requirements = requirementsTextarea.value.trim();
+            
+            if (requirements.length < 50) {
+                showToast("Please enter at least 50 characters of requirements.", 'error');
+                return;
+            }
+
+            // Reset UI State
+            errorMessage.classList.add('hidden');
+            resultsCard.classList.add('hidden');
+            generatedTestCases = [];
+
+            // Set Loading State
+            generateButton.disabled = true;
+            buttonText.textContent = 'Analyzing & Generating...';
+            loadingIndicator.classList.remove('hidden');
+
+            try {
+                const cases = await generateTestCasesFromRequirements(requirements);
+                
+                generatedTestCases = cases;
+                renderTestCases(generatedTestCases);
+                showToast("Test cases generated successfully!", 'success');
+            } catch (error) {
+                console.error('Generation Error:', error);
+                const userFriendlyError = error.message.includes("400") ? "The input text was too complex or long. Please simplify and try again." : error.message;
+
+                errorMessage.textContent = `Error: ${userFriendlyError}`;
+                errorMessage.classList.remove('hidden');
+                showToast(`Generation failed: ${error.message.substring(0, 80)}...`, 'error');
+            } finally {
+                // Reset Button State
+                generateButton.disabled = false;
+                buttonText.textContent = 'Generate Test Cases';
+                loadingIndicator.classList.add('hidden');
+            }
+        });
+
+        downloadPdfButton.addEventListener('click', generatePdfReport);
+
+        // Initial check for button state
+        generateButton.disabled = requirementsTextarea.value.trim().length < 50;
+
+    </script>
+</body>
+</html>
